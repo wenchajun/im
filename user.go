@@ -59,7 +59,7 @@ func (user *User) Domessage(msg string) {
          	onlineMsg:= "["+useronline.Addr+"]"+useronline.Name+":"+"在线"
          	user.SendMsg(onlineMsg)
 		 }
-		user.Server.maplock.Lock()
+		user.Server.maplock.Unlock()
 	}else if len(msg)>7 && msg[:7]=="rename|" {
   //消息格式：rename|张三
 		newName:=strings.Split(msg,"|")[1]
@@ -76,6 +76,33 @@ func (user *User) Domessage(msg string) {
 			user.Name=newName
 			user.SendMsg("你已经更新了用户名"+user.Name+"\n")
 		}
+	}else if len(msg)>4&& msg[:3]=="to|"{
+		//消息格式 to|张三|消息内容
+
+		//获取对方的用户名
+		remotename:=strings.Split(msg,"|")[1]
+		if remotename ==""{
+			user.SendMsg("消息格式不正确")
+			return
+		}
+
+
+		//根据用户名得到对方user对象
+
+		remoteUser,ok := user.Server.OnlineMap[remotename]
+		if !ok {
+			user.SendMsg("用户名不存在")
+			return
+		}
+
+		//获取消息内容，，通过对方的user对象将消息发送过去
+		content:=strings.Split(msg,"|")[2]
+		if content==""{
+			user.SendMsg("无消息，请重发")
+			return
+		}
+		remoteUser.SendMsg(user.Name+"对你说"+content)
+
 	}else {
 		user.Server.BroadCast(user, msg)
 	}
