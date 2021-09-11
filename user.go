@@ -1,6 +1,9 @@
 package main
 
-import "net"
+import (
+	"net"
+	"strings"
+)
 
 type User struct {
 	Name   string
@@ -42,8 +45,41 @@ func (user *User) Offline() {
 	//广播当前用户下线消息
 	user.Server.BroadCast(user, "当前用户已下线")
 }
+//给当前user对应的客户端发送消息
+func (user *User) SendMsg(msg string)  {
+	user.Conn.Write([]byte(msg))
+}
+
+//用户处理消息的业务
 func (user *User) Domessage(msg string) {
-	user.Server.BroadCast(user, msg)
+	if msg=="who" {
+		//查询当前用户有哪些
+		user.Server.maplock.Lock()
+         for _, useronline :=range user.Server.OnlineMap{
+         	onlineMsg:= "["+useronline.Addr+"]"+useronline.Name+":"+"在线"
+         	user.SendMsg(onlineMsg)
+		 }
+		user.Server.maplock.Lock()
+	}else if len(msg)>7 && msg[:7]=="rename|" {
+  //消息格式：rename|张三
+		newName:=strings.Split(msg,"|")[1]
+		//判断name是否已经存在
+		_,ok:=user.Server.OnlineMap[newName]
+		if ok{
+			user.SendMsg("当前用户已经存在")
+		}else{
+			user.Server.maplock.Lock()
+			delete(user.Server.OnlineMap,user.Name)
+			user.Server.OnlineMap[newName]=user
+			user.Server.maplock.Unlock()
+
+			user.Name=newName
+			user.SendMsg("你已经更新了用户名"+user.Name+"\n")
+		}
+	}else {
+		user.Server.BroadCast(user, msg)
+	}
+
 }
 
 //监听当前user channe的方法，一旦有消息，就直接发送给对端客户端
